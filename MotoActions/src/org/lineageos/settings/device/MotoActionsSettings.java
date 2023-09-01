@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015 The CyanogenMod Project
- * Copyright (c) 2017 The LineageOS Project
+ * Copyright (c) 2017-2022 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,26 +17,34 @@
 
 package org.lineageos.settings.device;
 
+import static android.provider.Settings.Secure.DOZE_ALWAYS_ON;
+import static android.provider.Settings.Secure.DOZE_ENABLED;
+
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.hardware.display.AmbientDisplayConfiguration;
 import android.os.UserHandle;
-import android.preference.PreferenceManager;
+import android.provider.Settings;
 
-import org.lineageos.settings.device.actions.UpdatedStateNotifier;
+import androidx.preference.PreferenceManager;
+
 import org.lineageos.settings.device.actions.CameraActivationAction;
 import org.lineageos.settings.device.actions.TorchAction;
+import org.lineageos.settings.device.actions.UpdatedStateNotifier;
 
 public class MotoActionsSettings {
-    private static final String TAG = "MotoActions";
-
     private static final String GESTURE_CAMERA_ACTION_KEY = "gesture_camera_action";
     private static final String GESTURE_CHOP_CHOP_KEY = "gesture_chop_chop";
-    private static final String GESTURE_PICK_UP_KEY = "gesture_pick_up";
-    private static final String GESTURE_IR_WAKEUP_KEY = "gesture_hand_wave";
     private static final String GESTURE_IR_SILENCER_KEY = "gesture_ir_silencer";
     private static final String GESTURE_FLIP_TO_MUTE_KEY = "gesture_flip_to_mute";
     private static final String GESTURE_LIFT_TO_SILENCE_KEY = "gesture_lift_to_silence";
+
+    static final String GESTURE_IR_WAKEUP_KEY = "gesture_hand_wave";
+    static final String GESTURE_PICK_UP_KEY = "gesture_pick_up";
+    static final String GESTURE_POCKET_KEY = "gesture_pocket";
+
+    static final String DOZE_ENABLE = "doze_enable";
+    static final String ALWAYS_ON_DISPLAY = "always_on_display";
 
     private final Context mContext;
     private final UpdatedStateNotifier mUpdatedStateNotifier;
@@ -44,6 +52,7 @@ public class MotoActionsSettings {
     private boolean mCameraGestureEnabled;
     private boolean mChopChopEnabled;
     private boolean mPickUpGestureEnabled;
+    private boolean mPocketGestureEnabled;
     private boolean mIrWakeUpEnabled;
     private boolean mIrSilencerEnabled;
     private boolean mFlipToMuteEnabled;
@@ -65,16 +74,32 @@ public class MotoActionsSettings {
         return mChopChopEnabled;
     }
 
-    public static boolean isAODEnabled(Context context) {
-        return new AmbientDisplayConfiguration(context).alwaysOnEnabled(UserHandle.USER_CURRENT);
+    public static boolean isAlwaysOnEnabled(Context context) {
+        return Settings.Secure.getIntForUser(context.getContentResolver(),
+                DOZE_ALWAYS_ON, 0, UserHandle.USER_CURRENT) != 0;
+    }
+
+    public static boolean alwaysOnDisplayAvailable(Context context) {
+        return new AmbientDisplayConfiguration(context).alwaysOnAvailable();
+    }
+
+    public static boolean enableAlwaysOn(Context context, boolean enable) {
+        return Settings.Secure.putIntForUser(context.getContentResolver(),
+                DOZE_ALWAYS_ON, enable ? 1 : 0, UserHandle.USER_CURRENT);
+    }
+
+    public static boolean enableDoze(Context context, boolean enable) {
+        return Settings.Secure.putInt(context.getContentResolver(),
+                DOZE_ENABLED, enable ? 1 : 0);
     }
 
     public static boolean isDozeEnabled(Context context) {
-        return new AmbientDisplayConfiguration(context).pulseOnNotificationEnabled(UserHandle.USER_CURRENT);
+        return Settings.Secure.getInt(context.getContentResolver(),
+                DOZE_ENABLED, 1) != 0;
     }
 
-    public boolean isAODEnabled() {
-        return isAODEnabled(mContext);
+    public boolean isAlwaysOnEnabled() {
+        return isAlwaysOnEnabled(mContext);
     }
 
     public boolean isDozeEnabled() {
@@ -82,11 +107,15 @@ public class MotoActionsSettings {
     }
 
     public boolean isIrWakeupEnabled() {
-        return isDozeEnabled() && !isAODEnabled() && mIrWakeUpEnabled;
+        return isDozeEnabled() && !isAlwaysOnEnabled() && mIrWakeUpEnabled;
     }
 
     public boolean isPickUpEnabled() {
-        return isDozeEnabled() && !isAODEnabled() && mPickUpGestureEnabled;
+        return isDozeEnabled() && !isAlwaysOnEnabled() && mPickUpGestureEnabled;
+    }
+
+    public boolean isPocketGestureEnabled() {
+        return isDozeEnabled() && !isAlwaysOnEnabled() && mPocketGestureEnabled;
     }
 
     public boolean isIrSilencerEnabled() {
@@ -114,38 +143,41 @@ public class MotoActionsSettings {
         mChopChopEnabled = sharedPreferences.getBoolean(GESTURE_CHOP_CHOP_KEY, true);
         mIrWakeUpEnabled = sharedPreferences.getBoolean(GESTURE_IR_WAKEUP_KEY, true);
         mPickUpGestureEnabled = sharedPreferences.getBoolean(GESTURE_PICK_UP_KEY, true);
+        mPocketGestureEnabled = sharedPreferences.getBoolean(GESTURE_POCKET_KEY, true);
         mIrSilencerEnabled = sharedPreferences.getBoolean(GESTURE_IR_SILENCER_KEY, false);
         mFlipToMuteEnabled = sharedPreferences.getBoolean(GESTURE_FLIP_TO_MUTE_KEY, false);
         mLiftToSilenceEnabled = sharedPreferences.getBoolean(GESTURE_LIFT_TO_SILENCE_KEY, false);
     }
 
-    private SharedPreferences.OnSharedPreferenceChangeListener mPrefListener =
+    private final SharedPreferences.OnSharedPreferenceChangeListener mPrefListener =
             new SharedPreferences.OnSharedPreferenceChangeListener() {
-        @Override
-        public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-            boolean updated = true;
+                @Override
+                public void onSharedPreferenceChanged(SharedPreferences sharedPrefs, String key) {
+                    boolean updated = true;
 
-            if (GESTURE_CAMERA_ACTION_KEY.equals(key)) {
-                mCameraGestureEnabled = sharedPreferences.getBoolean(GESTURE_CAMERA_ACTION_KEY, true);
-            } else if (GESTURE_CHOP_CHOP_KEY.equals(key)) {
-                mChopChopEnabled = sharedPreferences.getBoolean(GESTURE_CHOP_CHOP_KEY, true);
-            } else if (GESTURE_IR_WAKEUP_KEY.equals(key)) {
-                mIrWakeUpEnabled = sharedPreferences.getBoolean(GESTURE_IR_WAKEUP_KEY, true);
-            } else if (GESTURE_PICK_UP_KEY.equals(key)) {
-                mPickUpGestureEnabled = sharedPreferences.getBoolean(GESTURE_PICK_UP_KEY, true);
-            } else if (GESTURE_IR_SILENCER_KEY.equals(key)) {
-                mIrSilencerEnabled = sharedPreferences.getBoolean(GESTURE_IR_SILENCER_KEY, false);
-            } else if (GESTURE_FLIP_TO_MUTE_KEY.equals(key)) {
-                mFlipToMuteEnabled = sharedPreferences.getBoolean(GESTURE_FLIP_TO_MUTE_KEY, false);
-            } else if (GESTURE_LIFT_TO_SILENCE_KEY.equals(key)) {
-                mLiftToSilenceEnabled = sharedPreferences.getBoolean(GESTURE_LIFT_TO_SILENCE_KEY, false);
-            } else {
-                updated = false;
-            }
+                    if (GESTURE_CAMERA_ACTION_KEY.equals(key)) {
+                        mCameraGestureEnabled = sharedPrefs.getBoolean(GESTURE_CAMERA_ACTION_KEY, true);
+                    } else if (GESTURE_CHOP_CHOP_KEY.equals(key)) {
+                        mChopChopEnabled = sharedPrefs.getBoolean(GESTURE_CHOP_CHOP_KEY, true);
+                    } else if (GESTURE_IR_WAKEUP_KEY.equals(key)) {
+                        mIrWakeUpEnabled = sharedPrefs.getBoolean(GESTURE_IR_WAKEUP_KEY, true);
+                    } else if (GESTURE_PICK_UP_KEY.equals(key)) {
+                        mPickUpGestureEnabled = sharedPrefs.getBoolean(GESTURE_PICK_UP_KEY, true);
+                    } else if (GESTURE_POCKET_KEY.equals(key)) {
+                        mPocketGestureEnabled = sharedPrefs.getBoolean(GESTURE_POCKET_KEY, true);
+                    } else if (GESTURE_IR_SILENCER_KEY.equals(key)) {
+                        mIrSilencerEnabled = sharedPrefs.getBoolean(GESTURE_IR_SILENCER_KEY, false);
+                    } else if (GESTURE_FLIP_TO_MUTE_KEY.equals(key)) {
+                        mFlipToMuteEnabled = sharedPrefs.getBoolean(GESTURE_FLIP_TO_MUTE_KEY, false);
+                    } else if (GESTURE_LIFT_TO_SILENCE_KEY.equals(key)) {
+                        mLiftToSilenceEnabled = sharedPrefs.getBoolean(GESTURE_LIFT_TO_SILENCE_KEY, false);
+                    } else {
+                        updated = false;
+                    }
 
-            if (updated) {
-                mUpdatedStateNotifier.updateState();
-            }
-        }
-    };
+                    if (updated) {
+                        mUpdatedStateNotifier.updateState();
+                    }
+                }
+            };
 }

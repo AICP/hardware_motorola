@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2017 The LineageOS Project
+ * Copyright (C) 2015-2016 The CyanogenMod Project
+ *               2017,2022 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,44 +18,20 @@
 package org.lineageos.settings.device;
 
 import android.os.Bundle;
-import androidx.preference.PreferenceCategory;
-import androidx.preference.PreferenceFragment;
-import android.view.MenuItem;
 
 import com.android.settingslib.collapsingtoolbar.CollapsingToolbarBaseActivity;
+import com.android.settingslib.collapsingtoolbar.R;
 
 public class DozePreferenceActivity extends CollapsingToolbarBaseActivity {
+
+    private static final String TAG_DOZE = "doze";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getFragmentManager().beginTransaction()
-                .replace(com.android.settingslib.collapsingtoolbar.R.id.content_frame,
-                new DozePreferenceFragment()).commit();
-    }
-
-    public static class DozePreferenceFragment extends PreferenceFragment {
-        private static final String CATEGORY_AMBIENT_DISPLAY = "ambient_display_key";
-
-        @Override
-        public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-            addPreferencesFromResource(R.xml.doze_panel);
-            boolean dozeEnabled = MotoActionsSettings.isDozeEnabled(getActivity());
-            boolean aodEnabled = MotoActionsSettings.isAODEnabled(getActivity());
-            PreferenceCategory ambientDisplayCat = (PreferenceCategory)
-                    findPreference(CATEGORY_AMBIENT_DISPLAY);
-            if (ambientDisplayCat != null) {
-                ambientDisplayCat.setEnabled(dozeEnabled && !aodEnabled);
-            }
-        }
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == android.R.id.home) {
-            onBackPressed();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
+        getFragmentManager()
+                .beginTransaction()
+                .replace(R.id.content_frame, new DozePreferenceFragment(), TAG_DOZE)
+                .commit();
     }
 }
