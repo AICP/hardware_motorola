@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016 The CyanogenMod Project
- * Copyright (c) 2017 The LineageOS Project
+ * Copyright (c) 2017-2022 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,18 @@
 package org.lineageos.settings.device;
 
 import android.os.Bundle;
+
 import com.android.settingslib.collapsingtoolbar.CollapsingToolbarBaseActivity;
+import com.android.settingslib.collapsingtoolbar.R;
 
 public class ActionsPreferenceActivity extends CollapsingToolbarBaseActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getFragmentManager().beginTransaction()
-            .replace(com.android.settingslib.collapsingtoolbar.R.id.content_frame, new ActionsPreferenceFragment()).commit();
+        getFragmentManager()
+                .beginTransaction()
+                .replace(R.id.content_frame, new ActionsPreferenceFragment())
+                .commit();
     }
 }
